@@ -173,7 +173,7 @@ btn_xe = create_nav_button(left_nav_frame, "Quản lý Xe", "🚗",
                            lambda: show_page(quanli_xe.create_page))
 btn_taixe = create_nav_button(left_nav_frame, "Quản lý Tài Xế", "👤", 
                              lambda: show_page(quanli_taixe.create_page))
-bbtn_chuyendi = create_nav_button(left_nav_frame, "Quản lý Chuyến Đi", "🌐", 
+btn_chuyendi = create_nav_button(left_nav_frame, "Quản lý Chuyến Đi", "🌐", 
                         lambda: show_page(lambda master_frame: quanli_chuyendi.create_page(
                             master_frame, 
                             USER_ROLE, 
