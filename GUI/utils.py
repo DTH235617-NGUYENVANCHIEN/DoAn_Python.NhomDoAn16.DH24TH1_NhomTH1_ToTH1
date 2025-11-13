@@ -23,13 +23,19 @@ theme_colors = {
 def connect_db():
     """Hàm kết nối đến CSDL SQL Server."""
     try:
-        conn_string = (
-            r'DRIVER={SQL Server};'
-            r'SERVER=LAPTOP-MKC70SQE\SQLEXPRESS;' # Giữ nguyên server của bạn
-            r'DATABASE=QL_VanTai;'
-            r'Trusted_Connection=yes;' 
+        SERVER_ADDRESS = "localhost" # Hoặc "127.0.0.1"
+        SERVER_PORT = "53590"        # Port bạn đã tìm thấy trong IPAll
+        DATABASE_NAME = 'QL_VanTai'
+        DRIVER_NAME = 'SQL Server'   # Driver cơ bản (đã có trên máy bạn)
+
+        CONNECTION_STRING = (
+            # Định dạng: "SERVER=ĐiạChỉ,SốPort"
+            f"DRIVER={{{DRIVER_NAME}}};"
+            f"SERVER={SERVER_ADDRESS},{SERVER_PORT};" 
+            f"DATABASE={DATABASE_NAME};"
+            f"Trusted_Connection=yes;"
         )
-        conn = pyodbc.connect(conn_string)
+        conn = pyodbc.connect(CONNECTION_STRING)
         return conn
     except pyodbc.Error as e:
         messagebox.showerror("Lỗi kết nối CSDL", f"Không thể kết nối đến SQL Server:\n{e}")

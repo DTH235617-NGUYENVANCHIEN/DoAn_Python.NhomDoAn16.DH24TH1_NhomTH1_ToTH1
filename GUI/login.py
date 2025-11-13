@@ -5,23 +5,32 @@ import subprocess
 import sys
 import os
 import hashlib 
-
+import utils
 # ================================================================
 # KẾT NỐI CSDL (Giữ nguyên)
 # ================================================================
 def connect_db():
     """Hàm kết nối đến CSDL SQL Server."""
+SERVER_ADDRESS = "localhost" 
+SERVER_PORT = "53590"       
+DATABASE_NAME = 'QL_VanTai'
+DRIVER_NAME = 'SQL Server'   
+
+CONNECTION_STRING = (
+    f"DRIVER={{{DRIVER_NAME}}};"
+    f"SERVER={SERVER_ADDRESS},{SERVER_PORT};" 
+    f"DATABASE={DATABASE_NAME};"
+    f"Trusted_Connection=yes;"
+)
+
+# NÂNG CẤP: Đổi tên hàm để tránh xung đột
+def connect_db_chuyendi():
+    """Hàm kết nối đến CSDL SQL Server."""
     try:
-        conn_string = (
-            r'DRIVER={SQL Server};'
-            r'SERVER=LAPTOP-MKC70SQE\SQLEXPRESS;' # Giữ nguyên server của bạn
-            r'DATABASE=QL_VanTai;'
-            r'Trusted_Connection=yes;' 
-        )
-        conn = pyodbc.connect(conn_string)
+        conn = pyodbc.connect(CONNECTION_STRING)
         return conn
     except pyodbc.Error as e:
-        messagebox.showerror("Lỗi kết nối CSDL", f"Không thể kết nối đến SQL Server:\n{e}")
+        messagebox.showerror("Lỗi kết nối CSDL (Chuyến Đi)", f"Không thể kết nối đến SQL Server:\n{e}")
         return None
     except Exception as e:
         messagebox.showerror("Lỗi không xác định", f"Lỗi: {str(e)}")
@@ -43,7 +52,8 @@ def check_login(event=None): # Thêm event=None để bắt sự kiện Enter
         messagebox.showwarning("Thiếu thông tin", "Vui lòng nhập Tên đăng nhập và Mật khẩu.")
         return
 
-    conn = connect_db()
+    # SỬA: Dùng hàm connect_db từ utils
+    conn = utils.connect_db() 
     if conn is None:
         return
 
@@ -54,17 +64,23 @@ def check_login(event=None): # Thêm event=None để bắt sự kiện Enter
         record = cur.fetchone()
 
         if record:
+            # Tên đăng nhập ĐÚNG, kiểm tra mật khẩu
             db_hashed_password = record[0] 
             db_role = record[1]
             input_hashed_password = hash_password(password)
             
             if input_hashed_password == db_hashed_password:
+                # MẬT KHẨU ĐÚNG
                 messagebox.showinfo("Thành công", f"Đăng nhập thành công với vai trò: {db_role}")
                 login_window.destroy()
-                open_main_menu(db_role)
+                
+                # SỬA QUAN TRỌNG: Truyền 'username' sang
+                open_main_menu(username, db_role) 
             else:
                 messagebox.showerror("Sai thông tin", "Sai Mật khẩu. Vui lòng thử lại.")
-        else:
+        
+        else: 
+            # Tên đăng nhập SAI
             messagebox.showerror("Sai thông tin", "Không tìm thấy Tên đăng nhập.")
 
     except pyodbc.Error as e:
@@ -75,11 +91,11 @@ def check_login(event=None): # Thêm event=None để bắt sự kiện Enter
         if conn:
             conn.close()
 
-def open_main_menu(role):
+def open_main_menu(username, role):
     """
     Hàm này chạy file main.py và truyền vai trò (role) vào.
     """
-    print(f"Mở Main Menu với vai trò: {role}")
+    print(f"Mở Main Menu: User={username}, Role={role}")
     
     python_executable = sys.executable
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -90,7 +106,7 @@ def open_main_menu(role):
         return
 
     try:
-        subprocess.Popen([python_executable, main_menu_path, role])
+        subprocess.Popen([python_executable, main_menu_path, username, role])
     except Exception as e:
         messagebox.showerror("Lỗi khi mở Main Menu", f"Không thể khởi chạy main.py:\n{e}")
 

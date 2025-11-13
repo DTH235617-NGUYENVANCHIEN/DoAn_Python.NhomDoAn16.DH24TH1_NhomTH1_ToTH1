@@ -14,6 +14,8 @@ import quanli_lichsubaotri
 import quanli_nhatkinguyenlieu
 import quanli_taikhoan
 import quanli_taixe 
+import thongtin_canhan
+import thongtin_taikhoan
 
 # ================================================================
 # BỘ MÀU "LIGHT MODE" (Đồng bộ với các file con)
@@ -39,12 +41,12 @@ NAV_BUTTON_FONT = ("Calibri", 12)
 # CẤU HÌNH MÀU SẮC (SỬA LẠI: Nav-bar vẫn Dark, Content Light)
 # ================================================================
 # Thanh Nav bên trái (Vẫn giữ Dark Mode)
-NAV_BG = "#1C1C1C" 
-NAV_FG = "#FFFFFF" 
-NAV_HOVER_BG = "#333333" 
-NAV_HOVER_FG = "#0078D7" 
-NAV_EXIT_FG = "red" 
-NAV_DISABLED_FG = "#444444" 
+NAV_BG = theme_colors["bg_entry"] # Màu trắng (#FFFFFF)
+NAV_FG = theme_colors["text"]     # Màu đen (#000000)
+NAV_HOVER_BG = theme_colors["bg_main"]  # Màu xám siêu nhạt (#F0F0F0)
+NAV_HOVER_FG = theme_colors["accent"]   # Màu xanh dương (#0078D4)
+NAV_EXIT_FG = "red" # Giữ màu đỏ cho nút Thoát
+NAV_DISABLED_FG = theme_colors["text_disabled"] # Màu xám nhạt (#A0A0A0)
 
 # Khung Main bên phải (Chuyển sang Light Mode)
 MAIN_BG = theme_colors["bg_main"] # Nền xám nhạt
@@ -56,17 +58,20 @@ SEPARATOR_COLOR = "#CCCCCC" # Viền xám sáng
 # LẤY VAI TRÒ (ROLE) TỪ LÚC ĐĂNG NHẬP
 # ================================================================
 try:
-    USER_ROLE = sys.argv[1]
+    USER_USERNAME = sys.argv[1] # <--- THÊM DÒNG NÀY
+    USER_ROLE = sys.argv[2]     # <--- SỬA THÀNH sys.argv[2]
 except IndexError:
-    USER_ROLE = "Admin" # Mặc định là Admin để test
+    USER_USERNAME = "test_admin" # <--- THÊM (dùng để test)
+    USER_ROLE = "Admin" 
     print("Không thấy vai trò, mặc định là Admin để test.")
 
-print(f"Đang chạy Main Menu với vai trò: {USER_ROLE}")
+print(f"Đang chạy Main Menu: User={USER_USERNAME}, Role={USER_ROLE}")
 
 # ================================================================
 # NÂNG CẤP: HÀM HIỂN THỊ TRANG
 # ================================================================
 current_page_frame = None 
+current_active_button = None
 
 def show_page(page_creator_func):
     """Xóa frame cũ và hiển thị frame mới trong main_frame."""
@@ -119,17 +124,29 @@ title_btn = tk.Button(left_nav_frame,
                         text="HỆ THỐNG VẬN TẢI", 
                         font=NAV_TITLE_FONT, 
                         bg=NAV_BG, fg=NAV_FG, 
-                        anchor="w", padx=20,
+                        
+                        # 1. Ra giữa
+                        anchor="center", 
+                        
+                        padx=20,
                         relief="flat", borderwidth=0,
+                        
+                        # 2. Click-down (Nền không đổi, chữ xanh)
                         activebackground=NAV_BG, 
-                        activeforeground=NAV_FG,
-                        command=show_homepage)
-title_btn.pack(side=tk.TOP, fill=tk.X, pady=(20, 10))
+                        activeforeground=NAV_HOVER_FG,
+                        
+                        # 3. Active state (Select)
+                        command=lambda: (show_homepage(), set_active_button(title_btn))
+                       )
 
-lbl_padding = tk.Label(left_nav_frame, text="", bg=NAV_BG, font=("Arial", 8))
-lbl_padding.pack(side=tk.TOP, fill=tk.X, pady=10) 
+# 4. Hover (Nền không đổi, chữ xanh)
+title_btn.bind("<Enter>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_HOVER_FG))
+title_btn.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
 
-def create_nav_button(parent, text, icon, command):
+# 5. Xuống tí (pady 30, 20)
+title_btn.pack(side=tk.TOP, fill=tk.X, pady=(30, 20))
+
+def create_nav_button(parent, text, icon, page_command_func):
     btn_text = f"  {icon}   {text}" 
     
     btn = tk.Button(parent, 
@@ -140,7 +157,8 @@ def create_nav_button(parent, text, icon, command):
                         anchor="w", padx=20, pady=10,
                         activebackground=NAV_HOVER_BG, 
                         activeforeground=NAV_HOVER_FG, 
-                        command=command)
+                        command=lambda: (page_command_func(), set_active_button(btn))
+                   )
     
     btn.bind("<Enter>", lambda e: e.widget.config(bg=NAV_HOVER_BG, fg=NAV_HOVER_FG))
     btn.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
@@ -149,16 +167,31 @@ def create_nav_button(parent, text, icon, command):
     return btn
 
 # --- Tạo các nút (ĐÃ CẬP NHẬT HOÀN CHỈNH) ---
+btn_thongtin = create_nav_button(left_nav_frame, "Thông tin cá nhân", "👤",
+                            lambda: show_page(lambda master_frame:thongtin_canhan.create_page(master_frame, USER_USERNAME)))
 btn_xe = create_nav_button(left_nav_frame, "Quản lý Xe", "🚗", 
                            lambda: show_page(quanli_xe.create_page))
 btn_taixe = create_nav_button(left_nav_frame, "Quản lý Tài Xế", "👤", 
                              lambda: show_page(quanli_taixe.create_page))
-btn_chuyendi = create_nav_button(left_nav_frame, "Quản lý Chuyến Đi", "🌐", 
-                                 lambda: show_page(quanli_chuyendi.create_page))
+bbtn_chuyendi = create_nav_button(left_nav_frame, "Quản lý Chuyến Đi", "🌐", 
+                        lambda: show_page(lambda master_frame: quanli_chuyendi.create_page(
+                            master_frame, 
+                            USER_ROLE, 
+                            USER_USERNAME
+    ))
+)
 btn_baotri = create_nav_button(left_nav_frame, "Lịch sử Bảo Trì", "🔧", 
                                 lambda: show_page(quanli_lichsubaotri.create_page))
 btn_nhienlieu = create_nav_button(left_nav_frame, "Nhật ký Nhiên Liệu", "🧾", 
                                   lambda: show_page(quanli_nhatkinguyenlieu.create_page))
+btn_taikhoan_user = create_nav_button(left_nav_frame, "Tài khoản", "⚙️", 
+                            lambda: show_page(lambda master_frame: thongtin_taikhoan.create_page(
+                                    master_frame, 
+                                    master_frame.winfo_toplevel(), # Đây là cửa sổ 'root' chính
+                                    USER_USERNAME, # Gửi tên đăng nhập
+                                    USER_ROLE      # Gửi vai trò
+                                ))
+                        )
 btn_taikhoan = create_nav_button(left_nav_frame, "Quản lý Tài Khoản", "🔑", 
                                  lambda: show_page(quanli_taikhoan.create_page))
 btn_nhanvien = create_nav_button(left_nav_frame, "Quản lý Nhân Viên", "👥", 
@@ -179,6 +212,50 @@ btn_thoat = tk.Button(left_nav_frame,
 btn_thoat.bind("<Enter>", lambda e: e.widget.config(bg=NAV_HOVER_BG, fg=NAV_EXIT_FG)) 
 btn_thoat.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
 btn_thoat.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 20), padx=10) 
+
+def reset_active_button():
+    """Trả nút đang active về trạng thái bình thường."""
+    global current_active_button
+    if current_active_button:
+        try:
+            # Trả về màu nền/chữ gốc
+            current_active_button.config(bg=NAV_BG, fg=NAV_FG) 
+            
+            if current_active_button == title_btn:
+                # Gắn lại hover CHỮ (cho title_btn)
+                current_active_button.bind("<Enter>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_HOVER_FG))
+                current_active_button.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
+            else:
+                # Gắn lại hover NỀN (cho các nút khác)
+                current_active_button.bind("<Enter>", lambda e: e.widget.config(bg=NAV_HOVER_BG, fg=NAV_HOVER_FG))
+                current_active_button.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
+        except tk.TclError:
+            pass
+    current_active_button = None
+
+def set_active_button(button_widget):
+    """Tô màu CHỮ của nút được chọn và gỡ hover."""
+    global current_active_button
+    
+    # 1. Reset nút cũ trước
+    reset_active_button()
+    
+    try:
+        # ==================================
+        # === SỬA MÀU TẠI ĐÂY ===
+        # ==================================
+        # Chỉ đổi MÀU CHỮ (fg) thành màu xanh (NAV_HOVER_FG)
+        # Giữ nguyên MÀU NỀN (bg) là NAV_BG
+        button_widget.config(bg=NAV_BG, fg=NAV_HOVER_FG) 
+        
+        # 3. Gỡ sự kiện di chuột để nó "dính" màu
+        button_widget.unbind("<Enter>")
+        button_widget.unbind("<Leave>")
+        
+        # 4. Lưu lại nút này là nút active
+        current_active_button = button_widget
+    except tk.TclError:
+        pass
 
 # ================================================================
 # KHUNG NỘI DUNG CHÍNH (BÊN PHẢI) - SỬA SANG LIGHT MODE
@@ -229,13 +306,15 @@ def apply_permissions(role):
     
     # 1. Liệt kê TẤT CẢ các nút cần phân quyền
     all_buttons = {
+        "thongtin": btn_thongtin,
         "xe": btn_xe,
         "taixe": btn_taixe,
         "chuyendi": btn_chuyendi,
         "baotri": btn_baotri,
         "nhienlieu": btn_nhienlieu,
         "taikhoan": btn_taikhoan,
-        "nhanvien": btn_nhanvien
+        "nhanvien": btn_nhanvien,
+        "taikhoan_user": btn_taikhoan_user
     }
 
     # 2. Định nghĩa vai trò nào được thấy nút nào
@@ -245,7 +324,7 @@ def apply_permissions(role):
             "nhienlieu", "taikhoan", "nhanvien"
         ],
         "TaiXe": [
-            "chuyendi", "baotri", "nhienlieu"
+            "thongtin", "chuyendi", "baotri", "nhienlieu", "taikhoan_user"
         ]
         # Thêm vai trò khác ở đây
     }
@@ -256,11 +335,12 @@ def apply_permissions(role):
     # 4. Duyệt qua TẤT CẢ các nút
     for key, button in all_buttons.items():
         if key not in allowed_keys:
-            disable_button(button)
+            button.pack_forget()
 
 # ================================================================
 # CHẠY ỨNG DỤNG
 # ================================================================
 apply_permissions(USER_ROLE) # Áp dụng phân quyền
 create_main_content(main_frame) # Tải trang chủ lần đầu
+set_active_button(title_btn)
 root.mainloop()
