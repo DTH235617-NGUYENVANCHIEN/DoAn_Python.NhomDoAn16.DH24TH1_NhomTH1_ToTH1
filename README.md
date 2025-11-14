@@ -117,6 +117,7 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 * **Mục đích:** Xác thực người dùng và phân luồng nghiệp vụ.
 * **Luồng nghiệp vụ:**
+* 
     1.   Người dùng nhập Tên đăng nhập và Mật khẩu.
   
     2.   Hệ thống băm (SHA-256) mật khẩu nhập vào.
@@ -131,6 +132,8 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 #### 4.2.2. Giao diện Chính (Main Form) & Phân quyền
 
+<img width="975" height="513" alt="image" src="https://github.com/user-attachments/assets/9d7f0f2a-3a37-4bf3-8a1d-bd2825fdca38" />
+
 <p align="center">
   <b></b>
   <i>Hình 4.2.2: Giao diện chính (Vai trò: Admin)</i>
@@ -138,13 +141,20 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 * **Mục đích:** Là giao diện điều hướng chính (container) cho tất cả các chức năng.
 * **Luồng nghiệp vụ (Phân quyền):**
+* 
     1.   Khi form `main.py` được tải, nó nhận 2 tham số `USER_ROLE` và `USER_USERNAME`.
+  
     2.   Một hàm `apply_permissions(role)` được gọi.
+    
     3.   Dựa trên `USER_ROLE`, hàm này sẽ ẩn (dùng `.pack_forget()`) các nút chức năng mà vai trò đó không có quyền truy cập.
+    
     4.   **Ví dụ:** Nếu `USER_ROLE` là "TaiXe", các nút "Quản lý Xe", "Quản lý Tài xế", "Quản lý Nhân viên", "Quản lý Tài khoản" sẽ bị ẩn đi.
+    
     5.   Khi người dùng nhấn vào một nút (ví dụ: "Quản lý Xe"), `main.py` sẽ gọi hàm `create_page` từ file `quanly_xe.py` và hiển thị nó trong khung nội dung chính.
 
 #### 4.2.3. Chức năng Quản lý Nhân viên (Admin)
+
+<img width="975" height="548" alt="image" src="https://github.com/user-attachments/assets/a9ea9e04-890b-47fc-976e-ffffdf5b9774" />
 
 <p align="center">
   <b></b>
@@ -161,6 +171,8 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 #### 4.2.4. Chức năng Quản lý Tài xế (Admin)
 
+<img width="975" height="516" alt="image" src="https://github.com/user-attachments/assets/68412151-9ac9-4a60-b364-d07e44f243c6" />
+
 <p align="center">
   <b></b>
   <i>Hình 4.2.4: Giao diện Quản lý Tài xế (quanly_taixe.py)</i>
@@ -174,6 +186,8 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 * **Liên kết CSDL:** Thao tác trên cả hai bảng `NhanVien` (cập nhật thông tin chung) và `TaiXe` (cập nhật thông tin bằng lái).
 
 #### 4.2.5. Chức năng Quản lý Xe (Admin)
+
+<img width="975" height="518" alt="image" src="https://github.com/user-attachments/assets/38f95b9f-0805-4014-a908-0b6b931a6436" />
 
 <p align="center">
   <b></b>
@@ -190,6 +204,8 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 #### 4.2.6. Chức năng Quản lý Tài khoản (Admin)
 
+<img width="975" height="514" alt="image" src="https://github.com/user-attachments/assets/dc5b364f-5d6e-401c-9826-1f886915bc9e" />
+
 <p align="center">
   <b></b>
   <i>Hình 4.2.6: Giao diện Quản lý Tài khoản (quanly_taikhoan.py)</i>
@@ -203,6 +219,12 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 * **Liên kết CSDL:** Thao tác trên bảng `TaiKhoan`. Đọc từ `NhanVien` để điền vào combobox.
 
 #### 4.2.7. Chức năng Quản lý Chuyến đi (Admin & Tài xế)
+
+<img width="975" height="515" alt="image" src="https://github.com/user-attachments/assets/f68ef324-a96c-482f-a038-13680c9a498f" />
+
+
+<img width="975" height="516" alt="image" src="https://github.com/user-attachments/assets/0108aa1a-04aa-41c6-a9f9-a584514f56bf" />
+
 
 <p align="center">
   <b></b>
@@ -220,14 +242,25 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 * **Luồng nghiệp vụ (Tài xế):**
     *   Tài xế chỉ thấy các chuyến đi được gán cho mình (lọc bằng `WHERE MaNhanVien = ?`).
     *   **Bắt đầu:** Tài xế chọn chuyến đi (trạng thái "Đã gán") và nhấn "Bắt đầu thực hiện". Hệ thống chạy 2 lệnh SQL:
+  
         1.   `UPDATE ChuyenDi SET TrangThai = 1` (Đang thực hiện).
+  
         2.   `UPDATE TaiXe SET TrangThaiTaiXe = 2` (Đang lái).
+        
     *   **Hoàn thành:** Tài xế nhấn "Xác nhận Hoàn thành". Hệ thống chạy 2 lệnh SQL:
+    
         1.   `UPDATE ChuyenDi SET TrangThai = 2, ThoiGianKetThuc = GETDATE()` (Hoàn thành).
+        
         2.   `UPDATE TaiXe SET TrangThaiTaiXe = 1` (Rảnh).
+        
     *   **Hủy:** Tương tự như Hoàn thành, set `TrangThai = 3` và `TrangThaiTaiXe = 1`.
 
 #### 4.2.8. Chức năng Lịch sử Bảo trì (Admin & Tài xế)
+
+<img width="975" height="511" alt="image" src="https://github.com/user-attachments/assets/0dd394b1-8862-4545-9da6-08fa278c12cc" />
+
+<img width="975" height="511" alt="image" src="https://github.com/user-attachments/assets/09846b2c-8e1f-4ad7-9289-2a0bc573020f" />
+
 
 <p align="center">
   <b></b>
@@ -241,6 +274,11 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
     *   **Theo dõi người nhập:** Khi Thêm, hệ thống tự động lấy `MaNhanVien` của người đang đăng nhập và lưu vào cột `MaNhanVienNhap`. Bảng hiển thị của Admin sẽ JOIN với bảng `NhanVien` để hiển thị tên người nhập.
 
 #### 4.2.9. Chức năng Nhật ký Nhiên liệu (Admin & Tài xế)
+
+<img width="975" height="518" alt="image" src="https://github.com/user-attachments/assets/86cf6265-72f8-4308-b3b2-d59b616305c2" />
+
+<img width="975" height="511" alt="image" src="https://github.com/user-attachments/assets/801bfc95-e17f-4b1c-aaa3-d620f775b4c1" />
+
 
 <p align="center">
   <b></b>
@@ -257,6 +295,9 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
     *   Admin chọn một nhật ký đang "Chờ duyệt" và nhấn nút **"Duyệt"** (set `TrangThaiDuyet = 1`) hoặc **"Từ chối"** (set `TrangThaiDuyet = 2`).
 
 #### 4.2.10. Chức năng Đổi mật khẩu & Đăng xuất
+
+<img width="975" height="514" alt="image" src="https://github.com/user-attachments/assets/494add2c-798f-49f2-b64a-1e336bb4d045" />
+
 
 * **Mục đích:** Bảo mật tài khoản cá nhân và kết thúc phiên làm việc.
 * **Luồng nghiệp vụ:**
@@ -323,5 +364,6 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 *   (Thêm các link YouTube, Stack Overflow, hoặc tài liệu bạn đã tham khảo tại đây)
 *   [GeeksforGeeks - Python Tkinter](https://www.geeksforgeeks.org/python-gui-tkinter/)
 *   [pyodbc Wiki](https://github.com/mkleehammer/pyodbc/wiki)
+
 
 
