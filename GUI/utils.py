@@ -23,19 +23,13 @@ theme_colors = {
 def connect_db():
     """Hàm kết nối đến CSDL SQL Server."""
     try:
-        SERVER_ADDRESS = "localhost" # Hoặc "127.0.0.1"
-        SERVER_PORT = "53590"        # Port bạn đã tìm thấy trong IPAll
-        DATABASE_NAME = 'QL_VanTai'
-        DRIVER_NAME = 'SQL Server'   # Driver cơ bản (đã có trên máy bạn)
-
-        CONNECTION_STRING = (
-            # Định dạng: "SERVER=ĐiạChỉ,SốPort"
-            f"DRIVER={{{DRIVER_NAME}}};"
-            f"SERVER={SERVER_ADDRESS},{SERVER_PORT};" 
-            f"DATABASE={DATABASE_NAME};"
-            f"Trusted_Connection=yes;"
+        conn_string = (
+            r'DRIVER={SQL Server};'
+            r'SERVER=LAPTOP-MKC70SQE\SQLEXPRESS;' # Giữ nguyên server của bạn
+            r'DATABASE=QL_VanTai;'
+            r'Trusted_Connection=yes;' 
         )
-        conn = pyodbc.connect(CONNECTION_STRING)
+        conn = pyodbc.connect(conn_string)
         return conn
     except pyodbc.Error as e:
         messagebox.showerror("Lỗi kết nối CSDL", f"Không thể kết nối đến SQL Server:\n{e}")
@@ -238,3 +232,20 @@ def load_nhanvien_combobox():
     finally:
         if conn:
             conn.close()
+
+def load_xe_by_manv(manv):
+    """Tải danh sách xe (BienSoXe) được gán cho một MaNhanVien cụ thể."""
+    conn = connect_db() # Giả sử utils.py đã có hàm connect_db()
+    if conn is None: return []
+    try:
+        cur = conn.cursor()
+        # Giả sử bảng Xe có cột MaNhanVienHienTai
+        sql = "SELECT BienSoXe FROM Xe WHERE TrangThai = 1 AND MaNhanVienHienTai = ? ORDER BY BienSoXe"
+        cur.execute(sql, (manv,))
+        rows = cur.fetchall()
+        return [row[0] for row in rows]
+    except Exception as e:
+        print(f"Lỗi tải combobox xe theo MaNV: {e}")
+        return []
+    finally:
+        if conn: conn.close()

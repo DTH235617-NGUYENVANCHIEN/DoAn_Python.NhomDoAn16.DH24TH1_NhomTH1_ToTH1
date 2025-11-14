@@ -92,6 +92,29 @@ def show_homepage():
         current_page_frame = None 
     
     create_main_content(main_frame)
+#nút đăng xuất
+def do_logout(root, force=False):
+    """Đóng cửa sổ chính (root) và mở lại login.py."""
+    
+    if not force:
+        if not messagebox.askyesno("Xác nhận Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?"):
+            return
+            
+    try:
+        root.destroy() # Đóng cửa sổ main.py
+
+        python_executable = sys.executable
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        login_py_path = os.path.join(script_dir, "login.py") 
+        
+        if not os.path.exists(login_py_path):
+             messagebox.showerror("Lỗi", "Không tìm thấy file login.py!")
+             return
+
+        subprocess.Popen([python_executable, login_py_path])
+        
+    except Exception as e:
+        messagebox.showerror("Lỗi Đăng xuất", f"Không thể khởi động lại login.py:\n{e}")
 # ================================================================
 # THIẾT KẾ GIAO DIỆN CHÍNH
 # ================================================================
@@ -181,7 +204,12 @@ btn_chuyendi = create_nav_button(left_nav_frame, "Quản lý Chuyến Đi", "�
     ))
 )
 btn_baotri = create_nav_button(left_nav_frame, "Lịch sử Bảo Trì", "🔧", 
-    lambda: show_page(quanli_lichsubaotri.create_page))
+    lambda: show_page(lambda master_frame: quanli_lichsubaotri.create_page(
+        master_frame,
+        USER_ROLE,
+        USER_USERNAME
+    ))
+)
 btn_nhienlieu = create_nav_button(left_nav_frame, "Nhật ký Nhiên Liệu", "🧾", 
     lambda: show_page(lambda master_frame: quanli_nhatkinguyenlieu.create_page(
         master_frame,
@@ -202,10 +230,9 @@ btn_taikhoan = create_nav_button(left_nav_frame, "Quản lý Tài Khoản", "�
 btn_nhanvien = create_nav_button(left_nav_frame, "Quản lý Nhân Viên", "👥", 
                                  lambda: show_page(quanli_nhanvien.create_page)) 
 
-
-# --- Nút Thoát (Dưới cùng) ---
+# (PHẢI TẠO VÀ PACK NÚT THOÁT TRƯỚC)
 btn_thoat = tk.Button(left_nav_frame, 
-                        text="  ⏻   Thoát", 
+                        text="  ⏻   Thoát", 
                         font=NAV_BUTTON_FONT, 
                         bg=NAV_BG, fg=NAV_FG, 
                         relief="flat", borderwidth=0,
@@ -216,7 +243,25 @@ btn_thoat = tk.Button(left_nav_frame,
 
 btn_thoat.bind("<Enter>", lambda e: e.widget.config(bg=NAV_HOVER_BG, fg=NAV_EXIT_FG)) 
 btn_thoat.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
-btn_thoat.pack(side=tk.BOTTOM, fill=tk.X, pady=(10, 20), padx=10) 
+# PACK NÚT THOÁT TRƯỚC (Nó sẽ nằm dưới cùng)
+btn_thoat.pack(side=tk.BOTTOM, fill=tk.X, pady=(0, 20), padx=10) 
+
+# --- Nút Đăng xuất (Trên nút Thoát) ---
+# (TẠO NÚT ĐĂNG XUẤT SAU)
+btn_dangxuat = tk.Button(left_nav_frame, 
+                        text="  ↪️   Đăng xuất", 
+                        font=NAV_BUTTON_FONT, 
+                        bg=NAV_BG, fg=NAV_FG, 
+                        relief="flat", borderwidth=0,
+                        anchor="w", padx=20, pady=10,
+                        activebackground=NAV_HOVER_BG, 
+                        activeforeground=NAV_HOVER_FG, 
+                        command=lambda: do_logout(root, force=False))
+
+btn_dangxuat.bind("<Enter>", lambda e: e.widget.config(bg=NAV_HOVER_BG, fg=NAV_HOVER_FG)) 
+btn_dangxuat.bind("<Leave>", lambda e: e.widget.config(bg=NAV_BG, fg=NAV_FG))
+# PACK NÚT ĐĂNG XUẤT SAU (Nó sẽ nằm ngay trên nút Thoát)
+btn_dangxuat.pack(side=tk.BOTTOM, fill=tk.X, pady=0, padx=10)
 
 def reset_active_button():
     """Trả nút đang active về trạng thái bình thường."""
@@ -285,7 +330,7 @@ def create_main_content(parent):
     lbl_welcome_main.pack(pady=20, fill='x', expand=True, anchor='center')
 
     lbl_footer_main = tk.Label(home_frame, 
-                              text="Phát triển bởi [Tên Nhóm Của Bạn]", 
+                              text="Phát triển bởi [Nhóm 1 - Tổ 1 - Chủ đề 16]", 
                               font=("Calibri", 10),
                               bg=MAIN_BG, fg=MAIN_FOOTER_FG) # SỬA: Dùng biến
     lbl_footer_main.pack(pady=10, side=tk.BOTTOM, anchor='center')

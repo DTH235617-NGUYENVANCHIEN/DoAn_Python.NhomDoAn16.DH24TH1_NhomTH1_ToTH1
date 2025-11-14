@@ -2,34 +2,36 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
-# import pyodbc # <-- ĐÃ XÓA
 import utils # <-- IMPORT FILE DÙNG CHUNG
 from datetime import datetime
 import datetime as dt
 
 # ================================================================
-# BỘ MÀU "LIGHT MODE"
-# (ĐÃ XÓA - Chuyển sang utils.py)
+# PHẦN 2: CÁC HÀM TIỆN ÍCH
 # ================================================================
 
-# ================================================================
-# PHẦN 1: KẾT NỐI CSDL
-# (ĐÃ XÓA - Chuyển sang utils.py)
-# ================================================================
-
-# ================================================================
-# PHẦN 2: CÁC HÀM TIỆN ÍCH (Tải Combobox)
-# (Sửa connect_db() thành utils.connect_db())
-# ================================================================
-def load_xe_combobox():
-    """Tải danh sách TẤT CẢ xe (BienSoXe) vào Combobox."""
-    conn = utils.connect_db() # <-- SỬA
+# <-- SỬA: Thêm user_role và user_username
+def load_xe_combobox(user_role, user_username):
+    """Tải danh sách xe (BienSoXe) vào Combobox, LỌC theo tài xế."""
+    conn = utils.connect_db() 
     if conn is None: return []
     
     try:
         cur = conn.cursor()
-        sql = "SELECT BienSoXe FROM Xe ORDER BY BienSoXe"
-        cur.execute(sql)
+        sql = "SELECT BienSoXe FROM Xe"
+        params = []
+        
+        # Nếu là Tài xế, chỉ tải xe của tài xế đó
+        if user_role == "TaiXe":
+            manv = get_manv_from_username(user_username)
+            if manv:
+                sql += " WHERE MaNhanVienHienTai = ?"
+                params.append(manv)
+            else:
+                sql += " WHERE 1=0" # Không tìm thấy tài xế, trả về rỗng
+        
+        sql += " ORDER BY BienSoXe"
+        cur.execute(sql, params)
         rows = cur.fetchall()
         return [row[0] for row in rows]
     except Exception as e:
@@ -38,9 +40,23 @@ def load_xe_combobox():
     finally:
         if conn: conn.close()
 
+def get_manv_from_username(username):
+    """Lấy MaNhanVien từ TenDangNhap."""
+    conn = utils.connect_db()
+    if conn is None: return None
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT MaNhanVien FROM TaiKhoan WHERE TenDangNhap = ?", (username,))
+        row = cur.fetchone()
+        return row[0] if row else None
+    except Exception as e:
+        print(f"Lỗi get_manv_from_username: {e}")
+        return None
+    finally:
+        if conn: conn.close()
+
 # ================================================================
 # PHẦN 3: CÁC HÀM CRUD
-# (Đã sửa để nhận 'widgets' làm tham số)
 # ================================================================
 
 def set_form_state(is_enabled, widgets):
@@ -51,7 +67,6 @@ def set_form_state(is_enabled, widgets):
         widgets['cbb_xe'].config(state='readonly')
         widgets['date_ngaybaotri'].config(state='normal')
         widgets['entry_chiphi'].config(state='normal')
-        # Style đặc biệt cho tk.Text
         widgets['entry_mota'].config(state='normal', bg=utils.theme_colors["bg_entry"], fg=utils.theme_colors["text"])
     else:
         widgets['cbb_xe'].config(state='disabled')
@@ -78,22 +93,47 @@ def clear_input(widgets):
     tree = widgets['tree']
     if tree.selection():
         tree.selection_remove(tree.selection()[0])
+        
+    widgets["current_mode"] = "ADD" # Đặt chế độ
 
-def load_data(widgets):
-    """Tải TOÀN BỘ dữ liệu Bảo trì VÀ LÀM MỜ FORM."""
+def load_data(widgets, user_role, user_username):
+    """Tải dữ liệu Bảo trì (LỌC THEO VAI TRÒ) VÀ LÀM MỜ FORM."""
     tree = widgets['tree']
     for i in tree.get_children():
         tree.delete(i)
         
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None:
         set_form_state(is_enabled=False, widgets=widgets) 
         return
         
     try:
         cur = conn.cursor()
-        sql = "SELECT MaBaoTri, BienSoXe, NgayBaoTri, ChiPhi, MoTa FROM LichSuBaoTri ORDER BY NgayBaoTri DESC"
-        cur.execute(sql)
+        
+        sql = """
+            SELECT 
+                bt.MaBaoTri, bt.BienSoXe, bt.NgayBaoTri, bt.ChiPhi, bt.MoTa,
+                nv.HoVaTen AS NguoiNhap
+            FROM LichSuBaoTri AS bt
+            LEFT JOIN NhanVien AS nv ON bt.MaNhanVienNhap = nv.MaNhanVien
+        """
+        params = []
+        
+        if user_role == "TaiXe":
+            manv = get_manv_from_username(user_username)
+            if manv:
+                sql += """
+                    WHERE bt.BienSoXe IN (
+                        SELECT BienSoXe FROM Xe WHERE MaNhanVienHienTai = ?
+                    )
+                """
+                params.append(manv)
+            else:
+                sql += " WHERE 1=0"
+        
+        sql += " ORDER BY bt.NgayBaoTri DESC"
+        
+        cur.execute(sql, params)
         rows = cur.fetchall()
         
         for row in rows:
@@ -102,8 +142,9 @@ def load_data(widgets):
             ngay_bt = str(row[2]) if row[2] else "N/A"
             chiphi = row[3]
             mota = (row[4] or "")[:50] + "..."
+            nguoi_nhap = row[5] or "N/A"
             
-            tree.insert("", tk.END, values=(ma_bt, bienso, ngay_bt, chiphi, mota))
+            tree.insert("", tk.END, values=(ma_bt, bienso, ngay_bt, chiphi, mota, nguoi_nhap))
             
         children = tree.get_children()
         if children:
@@ -112,15 +153,19 @@ def load_data(widgets):
             tree.focus(first_item)         
             tree.event_generate("<<TreeviewSelect>>") 
         else:
-            set_form_state(is_enabled=True, widgets=widgets)
-            clear_input(widgets) 
+            clear_input(widgets) # Đặt chế độ Thêm nếu bảng trống
             
     except Exception as e:
         messagebox.showerror("Lỗi tải dữ liệu", f"Lỗi SQL: {str(e)}")
     finally:
         if conn:
             conn.close()
-        set_form_state(is_enabled=False, widgets=widgets)
+            
+        if tree.get_children():
+             set_form_state(is_enabled=False, widgets=widgets)
+             widgets["current_mode"] = "VIEW"
+        # (Nếu bảng trống, clear_input() đã set mode="ADD")
+
 
 def them_baotri(widgets):
     """(LOGIC THÊM) Thêm một lịch sử bảo trì mới."""
@@ -135,18 +180,24 @@ def them_baotri(widgets):
             return False
 
         chiphi_dec = float(chiphi) if chiphi else 0.0
+        
+        user_username = widgets.get("user_username")
+        manv_nhap = get_manv_from_username(user_username)
+        if not manv_nhap:
+            messagebox.showerror("Lỗi", "Không thể xác định người dùng. Vui lòng đăng nhập lại.")
+            return False
 
     except Exception as e:
         messagebox.showerror("Lỗi định dạng", f"Chi phí không hợp lệ: {e}")
         return False
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return False
 
     try:
         cur = conn.cursor()
-        sql = "INSERT INTO LichSuBaoTri (BienSoXe, NgayBaoTri, MoTa, ChiPhi) VALUES (?, ?, ?, ?)"
-        cur.execute(sql, (bienso, ngay_bt, mota, chiphi_dec))
+        sql = "INSERT INTO LichSuBaoTri (BienSoXe, NgayBaoTri, MoTa, ChiPhi, MaNhanVienNhap) VALUES (?, ?, ?, ?, ?)"
+        cur.execute(sql, (bienso, ngay_bt, mota, chiphi_dec, manv_nhap))
         conn.commit()
         messagebox.showinfo("Thành công", "Đã thêm lịch sử bảo trì thành công")
         return True
@@ -167,7 +218,7 @@ def on_item_select(event, widgets):
     selected_item = tree.item(selected[0])
     mabaotri = selected_item['values'][0]
     
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return
 
     try:
@@ -183,13 +234,11 @@ def on_item_select(event, widgets):
         set_form_state(is_enabled=True, widgets=widgets)
         widgets['entry_mabaotri'].config(state='normal')
         
-        # Xóa
         widgets['entry_mabaotri'].delete(0, tk.END)
         widgets['cbb_xe'].set("")
         widgets['entry_chiphi'].delete(0, tk.END)
         widgets['entry_mota'].delete("1.0", tk.END)
         
-        # Điền
         widgets['entry_mabaotri'].insert(0, data.MaBaoTri)
         widgets['cbb_xe'].set(data.BienSoXe or "")
         
@@ -205,6 +254,7 @@ def on_item_select(event, widgets):
         if conn: conn.close()
         widgets['entry_mabaotri'].config(state='disabled') 
         set_form_state(is_enabled=False, widgets=widgets)
+        widgets["current_mode"] = "VIEW" # Đặt chế độ
 
 def chon_baotri_de_sua(widgets): 
     """(NÚT SỬA) Kích hoạt chế độ sửa, Mở khóa form (trừ MaBaoTri)."""
@@ -220,6 +270,7 @@ def chon_baotri_de_sua(widgets):
     set_form_state(is_enabled=True, widgets=widgets)
     widgets['entry_mabaotri'].config(state='disabled')
     widgets['cbb_xe'].focus() 
+    widgets["current_mode"] = "EDIT" # Đặt chế độ
 
 def luu_baotri_da_sua(widgets):
     """(LOGIC SỬA) Lưu thay đổi (UPDATE) sau khi sửa."""
@@ -244,7 +295,7 @@ def luu_baotri_da_sua(widgets):
         messagebox.showerror("Lỗi định dạng", f"Chi phí không hợp lệ: {e}")
         return False
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return False
         
     try:
@@ -266,15 +317,32 @@ def luu_baotri_da_sua(widgets):
     finally:
         if conn: conn.close()
 
+# ================================================================
+# HÀM QUAN TRỌNG NHẤT (SỬA LỖI 2)
+# ================================================================
 def save_data(widgets):
     """Lưu dữ liệu, tự động kiểm tra xem nên Thêm mới (INSERT) hay Cập nhật (UPDATE)."""
-    if widgets['entry_mabaotri'].get():
+    
+    user_role = widgets.get("user_role", "Admin")
+    user_username = widgets.get("user_username", "")
+    
+    # Sửa: Dùng logic 'current_mode'
+    if widgets.get("current_mode") == "EDIT":
         success = luu_baotri_da_sua(widgets)
-    else:
+    elif widgets.get("current_mode") == "ADD":
         success = them_baotri(widgets)
+    else:
+        # Nếu đang ở VIEW (chưa nhấn Thêm/Sửa), thì dùng logic cũ
+        if widgets['entry_mabaotri'].get():
+            success = luu_baotri_da_sua(widgets)
+        else:
+            success = them_baotri(widgets)
     
     if success:
-        load_data(widgets)
+        # Sửa lỗi: Truyền tham số user vào load_data
+        load_data(widgets, user_role, user_username)
+# ================================================================
+
 
 def xoa_baotri(widgets):
     """Xóa lịch sử bảo trì được chọn."""
@@ -292,7 +360,7 @@ def xoa_baotri(widgets):
     if not messagebox.askyesno("Xác nhận", f"Bạn có chắc chắn muốn xóa Lịch sử Mã: {mabaotri}?"):
         return
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return
         
     try:
@@ -300,7 +368,10 @@ def xoa_baotri(widgets):
         cur.execute("DELETE FROM LichSuBaoTri WHERE MaBaoTri=?", (mabaotri,))
         conn.commit()
         messagebox.showinfo("Thành công", "Đã xóa lịch sử bảo trì thành công")
-        load_data(widgets)
+        
+        user_role = widgets.get("user_role", "Admin")
+        user_username = widgets.get("user_username", "")
+        load_data(widgets, user_role, user_username)
         
     except Exception as e:
         conn.rollback()
@@ -312,22 +383,20 @@ def xoa_baotri(widgets):
 # PHẦN 4: HÀM TẠO TRANG (HÀM CHÍNH ĐỂ MAIN.PY GỌI)
 # ================================================================
 
-def create_page(master):
+def create_page(master, user_role, user_username):
     """
     Hàm này được main.py gọi. 
     Nó tạo ra toàn bộ nội dung trang và đặt vào 'master' (là main_frame).
     """
     
-    # 1. TẠO FRAME CHÍNH
     page_frame = ttk.Frame(master, style="TFrame")
-    
-    # === CÀI ĐẶT STYLE (CHỈ CẦN 1 DÒNG) ===
     utils.setup_theme(page_frame) 
-    # ==================================
     
-    
-    # 2. TẠO GIAO DIỆN (ĐẶT VÀO 'page_frame')
-    lbl_title = ttk.Label(page_frame, text="QUẢN LÝ LỊCH SỬ BẢO TRÌ", style="Title.TLabel")
+    lbl_title_text = "QUẢN LÝ LỊCH SỬ BẢO TRÌ"
+    if user_role == "TaiXe":
+        lbl_title_text = "LỊCH SỬ BẢO TRÌ XE CỦA BẠN"
+        
+    lbl_title = ttk.Label(page_frame, text=lbl_title_text, style="Title.TLabel")
     lbl_title.pack(pady=15) 
 
     frame_info = ttk.Frame(page_frame, style="TFrame")
@@ -359,7 +428,9 @@ def create_page(master):
     cbb_xe_var = tk.StringVar()
     cbb_xe = ttk.Combobox(frame_info, textvariable=cbb_xe_var, width=28, state='readonly')
     cbb_xe.grid(row=1, column=1, padx=5, pady=8, sticky="w")
-    cbb_xe['values'] = load_xe_combobox() # <-- SỬA (Hàm này vẫn local)
+    
+    # <-- SỬA LỖI 3: Lọc combobox theo tài xế
+    cbb_xe['values'] = load_xe_combobox(user_role, user_username) 
 
     ttk.Label(frame_info, text="Chi phí:").grid(row=1, column=2, padx=15, pady=8, sticky="w")
     entry_chiphi = ttk.Entry(frame_info, width=40)
@@ -383,21 +454,21 @@ def create_page(master):
     frame_info.columnconfigure(1, weight=1)
     frame_info.columnconfigure(3, weight=1)
 
-    # ===== Frame nút (SỬA LỖI: Đưa lên TRƯỚC Bảng) =====
+    # ===== Frame nút =====
     frame_btn = ttk.Frame(page_frame, style="TFrame")
     frame_btn.pack(pady=10)
 
-    # ===== Bảng danh sách (SỬA LỖI: Đưa xuống DƯỚI nút) =====
+    # ===== Bảng danh sách =====
     lbl_ds = ttk.Label(page_frame, text="Danh sách bảo trì (Sắp xếp mới nhất)", style="Header.TLabel")
     lbl_ds.pack(pady=(10, 5), padx=20, anchor="w")
 
     frame_tree = ttk.Frame(page_frame, style="TFrame")
-    frame_tree.pack(pady=10, padx=20, fill="both", expand=True) # expand=True ở cuối
+    frame_tree.pack(pady=10, padx=20, fill="both", expand=True) 
 
     scrollbar_y = ttk.Scrollbar(frame_tree, orient=tk.VERTICAL, style="Vertical.TScrollbar")
     scrollbar_x = ttk.Scrollbar(frame_tree, orient=tk.HORIZONTAL, style="Horizontal.TScrollbar")
 
-    columns = ("ma_bt", "bienso", "ngay_bt", "chiphi", "mota")
+    columns = ("ma_bt", "bienso", "ngay_bt", "chiphi", "mota", "nguoi_nhap")
     tree = ttk.Treeview(frame_tree, columns=columns, show="headings", height=10,
                         yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
 
@@ -415,7 +486,10 @@ def create_page(master):
     tree.heading("chiphi", text="Chi phí")
     tree.column("chiphi", width=100, anchor="e") 
     tree.heading("mota", text="Mô tả")
-    tree.column("mota", width=300)
+    tree.column("mota", width=250)
+    
+    tree.heading("nguoi_nhap", text="Người nhập")
+    tree.column("nguoi_nhap", width=120)
 
     tree.pack(fill="both", expand=True)
     
@@ -427,27 +501,36 @@ def create_page(master):
         "cbb_xe": cbb_xe,
         "entry_chiphi": entry_chiphi,
         "entry_mota": entry_mota,
-        "cbb_xe_var": cbb_xe_var
+        "cbb_xe_var": cbb_xe_var,
+        "user_role": user_role,
+        "user_username": user_username,
+        "current_mode": "VIEW" # Thêm biến trạng thái
     }
 
-    # (Code tạo nút bây giờ nằm trong frame_btn ở trên)
+    # (Code tạo nút)
     btn_them = ttk.Button(frame_btn, text="Thêm", width=8, command=lambda: clear_input(widgets)) 
     btn_them.grid(row=0, column=0, padx=10)
     btn_luu = ttk.Button(frame_btn, text="Lưu", width=8, command=lambda: save_data(widgets)) 
     btn_luu.grid(row=0, column=1, padx=10)
     btn_sua = ttk.Button(frame_btn, text="Sửa", width=8, command=lambda: chon_baotri_de_sua(widgets)) 
     btn_sua.grid(row=0, column=2, padx=10)
-    btn_huy = ttk.Button(frame_btn, text="Hủy", width=8, command=lambda: load_data(widgets)) 
+    
+    btn_huy = ttk.Button(frame_btn, text="Hủy", width=8, 
+                         command=lambda: load_data(widgets, user_role, user_username)) 
     btn_huy.grid(row=0, column=3, padx=10)
+    
     btn_xoa = ttk.Button(frame_btn, text="Xóa", width=8, command=lambda: xoa_baotri(widgets)) 
     btn_xoa.grid(row=0, column=4, padx=10)
-    # (Bỏ nút Thoát)
+    
+    if user_role == "TaiXe":
+        btn_sua.config(state="disabled")
+        btn_xoa.config(state="disabled")
     
     # 4. KẾT NỐI BINDING
     tree.bind("<<TreeviewSelect>>", lambda event: on_item_select(event, widgets)) 
 
     # 5. TẢI DỮ LIỆU LẦN ĐẦU
-    load_data(widgets) 
+    load_data(widgets, user_role, user_username) 
     
     # 6. TRẢ VỀ FRAME CHÍNH
     return page_frame
@@ -460,10 +543,13 @@ if __name__ == "__main__":
     test_root = tk.Tk()
     test_root.title("Test Quản lý Bảo Trì")
 
-    # SỬA: Dùng hàm từ utils
-    utils.center_window(test_root, 950, 650) 
+    try:
+        utils.center_window(test_root, 950, 650) 
+    except Exception:
+        test_root.geometry("950x650")
     
-    page = create_page(test_root) 
+    page = create_page(test_root, "Admin", "admin")
+    
     page.pack(fill="both", expand=True)
     
     test_root.mainloop()

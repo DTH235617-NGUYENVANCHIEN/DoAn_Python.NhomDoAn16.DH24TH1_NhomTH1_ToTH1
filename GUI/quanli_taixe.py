@@ -8,23 +8,7 @@ from datetime import datetime
 import datetime as dt
 
 # ================================================================
-# BỘ MÀU "LIGHT MODE"
-# (ĐÃ XÓA - Chuyển sang utils.py)
-# ================================================================
-
-# ================================================================
-# PHẦN 1: KẾT NỐI CSDL
-# (ĐÃ XÓA - Chuyển sang utils.py)
-# ================================================================
-
-# ================================================================
-# PHẦN 2: CÁC HÀM TIỆN ÍCH (Tải Combobox)
-# (ĐÃ XÓA - Chuyển sang utils.py)
-# ================================================================
-
-# ================================================================
 # PHẦN 3: CÁC HÀM CRUD
-# (Đã sửa để nhận 'widgets' và dùng utils.connect_db())
 # ================================================================
 
 def set_form_state(is_enabled, widgets):
@@ -66,6 +50,8 @@ def clear_input(widgets):
     tree = widgets['tree']
     if tree.selection():
         tree.selection_remove(tree.selection()[0])
+        
+    widgets["current_mode"] = "ADD" # <-- THAY ĐỔI: Đặt chế độ
 
 def load_data(widgets):
     """Tải TOÀN BỘ dữ liệu tài xế (JOIN) VÀ LÀM MỜ FORM."""
@@ -73,7 +59,7 @@ def load_data(widgets):
     for i in tree.get_children():
         tree.delete(i)
         
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None:
         set_form_state(is_enabled=False, widgets=widgets) 
         return
@@ -106,16 +92,8 @@ def load_data(widgets):
             tree.focus(first_item)         
             tree.event_generate("<<TreeviewSelect>>") 
         else:
-            widgets['entry_manv'].config(state='normal')
-            set_form_state(is_enabled=True, widgets=widgets)
-            widgets['entry_manv'].delete(0, tk.END)
-            widgets['entry_hoten'].delete(0, tk.END)
-            widgets['entry_sdt'].delete(0, tk.END)
-            widgets['entry_diachi'].delete(0, tk.END)
-            widgets['entry_banglai'].delete(0, tk.END)
-            widgets['date_banglai'].set_date("2025-01-01")
-            widgets['cbb_trangthai_nv'].set("Đang làm việc")
-            widgets['cbb_trangthai_lx'].set("Rảnh")
+            # THAY ĐỔI: Gọi clear_input() để kích hoạt chế độ "Thêm"
+            clear_input(widgets)
             
     except pyodbc.Error as e:
         messagebox.showerror("Lỗi tải dữ liệu", f"Lỗi SQL: {str(e)}")
@@ -124,7 +102,11 @@ def load_data(widgets):
     finally:
         if conn:
             conn.close()
-        set_form_state(is_enabled=False, widgets=widgets)
+        
+        # THAY ĐỔI: Chỉ khóa form và đặt chế độ VIEW nếu có dữ liệu
+        if tree.get_children():
+            set_form_state(is_enabled=False, widgets=widgets)
+            widgets["current_mode"] = "VIEW" # <-- THAY ĐỔI
 
 def them_taixe(widgets):
     """(LOGIC THÊM) Thêm một tài xế mới (vào cả 2 bảng NhanVien và TaiXe)."""
@@ -145,7 +127,7 @@ def them_taixe(widgets):
         messagebox.showwarning("Thiếu dữ liệu", "Vui lòng nhập Mã NV, Họ Tên và Hạng Bằng Lái")
         return False
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return False
 
     try:
@@ -185,7 +167,7 @@ def on_item_select(event, widgets):
     selected_item = tree.item(selected[0])
     manv = selected_item['values'][0]
     
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return
 
     try:
@@ -228,6 +210,7 @@ def on_item_select(event, widgets):
     finally:
         if conn: conn.close()
         set_form_state(is_enabled=False, widgets=widgets)
+        widgets["current_mode"] = "VIEW" # <-- THAY ĐỔI: Đặt chế độ
 
 def chon_taixe_de_sua(widgets): 
     """(NÚT SỬA) Kích hoạt chế độ sửa, Mở khóa form (trừ MaNV)."""
@@ -243,6 +226,7 @@ def chon_taixe_de_sua(widgets):
     set_form_state(is_enabled=True, widgets=widgets)
     widgets['entry_manv'].config(state='disabled') 
     widgets['entry_hoten'].focus() 
+    widgets["current_mode"] = "EDIT" # <-- THAY ĐỔI: Đặt chế độ
 
 def luu_taixe_da_sua(widgets):
     """(LOGIC SỬA) Lưu thay đổi (UPDATE) sau khi sửa (vào cả 2 bảng)."""
@@ -267,7 +251,7 @@ def luu_taixe_da_sua(widgets):
         messagebox.showwarning("Thiếu dữ liệu", "Họ Tên và Hạng Bằng Lái không được rỗng")
         return False
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return False
         
     try:
@@ -294,15 +278,29 @@ def luu_taixe_da_sua(widgets):
     finally:
         if conn: conn.close()
 
+# ================================================================
+# HÀM QUAN TRỌNG NHẤT (SỬA LỖI)
+# ================================================================
 def save_data(widgets):
     """Lưu dữ liệu, tự động kiểm tra xem nên Thêm mới (INSERT) hay Cập nhật (UPDATE)."""
-    if widgets['entry_manv'].cget('state') == 'disabled':
-        success = luu_taixe_da_sua(widgets)
-    else:
-        success = them_taixe(widgets)
     
+    success = False
+    
+    # THAY ĐỔI: Kiểm tra biến trạng thái, KHÔNG kiểm tra widget
+    if widgets["current_mode"] == "EDIT":
+        success = luu_taixe_da_sua(widgets)
+        
+    elif widgets["current_mode"] == "ADD":
+        success = them_taixe(widgets)
+        
+    else: # Đang ở chế độ "VIEW"
+        messagebox.showwarning("Chưa Sửa/Thêm", "Vui lòng nhấn 'Thêm' hoặc 'Sửa' trước khi Lưu.")
+        return
+
     if success:
-        load_data(widgets) 
+        # Tải lại toàn bộ dữ liệu (và tự động reset mode về "VIEW")
+        load_data(widgets)
+# ================================================================
 
 def xoa_taixe_vinhvien(widgets):
     """(NGUY HIỂM) Xóa vĩnh viễn tài xế và MỌI DỮ LIỆU LIÊN QUAN."""
@@ -325,7 +323,7 @@ def xoa_taixe_vinhvien(widgets):
     if not messagebox.askyesno("XÁC NHẬN XÓA VĨNH VIỄN", msg_xacnhan):
         return
 
-    conn = utils.connect_db() # <-- SỬA
+    conn = utils.connect_db()
     if conn is None: return
         
     try:
@@ -430,16 +428,16 @@ def create_page(master):
     frame_info.columnconfigure(1, weight=1)
     frame_info.columnconfigure(3, weight=1)
 
-    # ===== Frame nút (SỬA LỖI: Đưa lên TRƯỚC Bảng) =====
+    # ===== Frame nút =====
     frame_btn = ttk.Frame(page_frame, style="TFrame")
     frame_btn.pack(pady=10)
 
-    # ===== Bảng danh sách tài xế (SỬA LỖI: Đưa xuống DƯỚI nút) =====
+    # ===== Bảng danh sách tài xế =====
     lbl_ds = ttk.Label(page_frame, text="Danh sách tài xế", style="Header.TLabel")
     lbl_ds.pack(pady=(10, 5), padx=20, anchor="w")
 
     frame_tree = ttk.Frame(page_frame, style="TFrame")
-    frame_tree.pack(pady=10, padx=20, fill="both", expand=True) # expand=True ở cuối
+    frame_tree.pack(pady=10, padx=20, fill="both", expand=True) 
 
     scrollbar_y = ttk.Scrollbar(frame_tree, orient=tk.VERTICAL, style="Vertical.TScrollbar")
     scrollbar_x = ttk.Scrollbar(frame_tree, orient=tk.HORIZONTAL, style="Horizontal.TScrollbar")
@@ -480,10 +478,11 @@ def create_page(master):
         "cbb_trangthai_nv": cbb_trangthai_nv,
         "cbb_trangthai_lx": cbb_trangthai_lx,
         "cbb_trangthai_nv_var": cbb_trangthai_nv_var,
-        "cbb_trangthai_lx_var": cbb_trangthai_lx_var
+        "cbb_trangthai_lx_var": cbb_trangthai_lx_var,
+        "current_mode": "VIEW" # <-- THAY ĐỔI: Thêm biến trạng thái
     }
 
-    # (Code tạo nút bây giờ nằm trong frame_btn ở trên)
+    # (Code tạo nút)
     btn_them = ttk.Button(frame_btn, text="Thêm", width=8, command=lambda: clear_input(widgets)) 
     btn_them.grid(row=0, column=0, padx=10)
     btn_luu = ttk.Button(frame_btn, text="Lưu", width=8, command=lambda: save_data(widgets)) 
@@ -494,7 +493,6 @@ def create_page(master):
     btn_huy.grid(row=0, column=3, padx=10)
     btn_xoa = ttk.Button(frame_btn, text="Xóa", width=8, command=lambda: xoa_taixe_vinhvien(widgets)) 
     btn_xoa.grid(row=0, column=4, padx=10)
-    # (Bỏ nút Thoát)
     
     # 4. KẾT NỐI BINDING
     tree.bind("<<TreeviewSelect>>", lambda event: on_item_select(event, widgets)) 
@@ -513,10 +511,15 @@ if __name__ == "__main__":
     test_root = tk.Tk()
     test_root.title("Test Quản lý Tài xế")
 
-    # SỬA: Dùng hàm từ utils (cần import utils)
-    import utils 
-    
-    utils.center_window(test_root, 900, 650) 
+    try:
+        utils.center_window(test_root, 900, 650) 
+    except AttributeError:
+        print("Lưu ý: Chạy test không có file utils.py. Đang dùng kích thước mặc định.")
+        test_root.geometry("900x650")
+    except Exception as e:
+         print(f"Lỗi: {e}. Đặt kích thước cửa sổ mặc định.")
+         test_root.geometry("900x650")
+
     
     page = create_page(test_root) 
     page.pack(fill="both", expand=True)
