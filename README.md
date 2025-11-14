@@ -241,7 +241,7 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 <p align="center">
   <b></b>
-  <i>Hình 4.2.7: Giao diện Chuyến đi (Vai trò: Admin)</i>
+  <i>Hình 4.2.7: Giao diện Chuyến đi (Vai trò: Admin & Tài xế)</i>
 </p>
 
 * **Mục đích:** Giao diện nghiệp vụ chính để phân công và thực thi công việc.
@@ -302,7 +302,7 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 <p align="center">
   <b></b>
-  <i>Hình 4.2.9: Giao diện Nhật ký Nhiên liệu (Vai trò: Tài xế)</i>
+  <i>Hình 4.2.9: Giao diện Nhật ký Nhiên liệu (Vai trò: Admin & Tài xế)</i>
 </p>
 
 * **Mục đích:** Quản lý chi phí nhiên liệu và quy trình duyệt chi.
@@ -334,56 +334,39 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
     *   **Thoát:** Đóng toàn bộ ứng dụng.
 
 ---
+## 5. MỤC TIÊU ĐẠT ĐƯỢC VÀ CHƯA ĐẠT ĐƯỢC
 
-## 5. CÀI ĐẶT VÀ CHẠY THỬ
+### 5.1. Những mục tiêu đạt được
 
-**Yêu cầu:**
+* **Hệ thống Đăng nhập & Phân quyền (Đã đạt được):**
+  * Hoàn thành `login.py` với chức năng hash mật khẩu (SHA-256) để bảo mật.
+  * Hoàn thành `main.py` với logic phân quyền, tự động ẩn/hiện chức năng cho 2 vai trò: **Admin** và **Tài xế**.
+  * Hoàn thành `thongtin_taikhoan.py` cho phép người dùng tự đổi mật khẩu (xác thực mật khẩu cũ).
 
-*   Python 3.8+
-*   Microsoft SQL Server (đã bật TCP/IP)
+* **Quản lý Danh mục - Admin (Đã đạt được):**
+  * Hoàn thành CRUD cho **Quản lý Xe** (`quanly_xe.py`), bao gồm logic gán xe cho tài xế.
+  * Hoàn thành CRUD cho **Quản lý Tài xế** (`quanly_taixe.py`), quản lý 2 trạng thái (Trạng thái nhân sự & Trạng thái lái xe).
+  * Hoàn thành CRUD cho **Quản lý Nhân viên** (`quanly_nhanvien.py`).
+  * Hoàn thành CRUD cho **Quản lý Tài khoản** (`quanly_taikhoan.py`), bao gồm logic che/đổi mật khẩu (`******`).
 
-**Các bước cài đặt:**
+* **Quản lý Nghiệp vụ - Phân quyền (Đã đạt được):**
+  * **Admin:** Có thể tạo, sửa, xóa và gán chuyến đi (`quanly_chuyendi.py`).
+  * **Tài xế:** Chỉ thấy các chuyến đi của mình, với các nút hành động: "Bắt đầu", "Hoàn thành", "Hủy chuyến".
+  * **Logic tự động:** Trạng thái "Rảnh"/"Bận" của tài xế (TaiXe.TrangThaiTaiXe) được tự động cập nhật khi Tài xế nhận/kết thúc/hủy chuyến đi.
+  * **Logic lọc thông minh:** Form gán chuyến đi tự động lọc danh sách xe (chỉ xe rảnh, hoặc xe tài xế đang giữ).
+* **Quản lý Chi phí - Phân quyền (Đã đạt được):**
+  * **Lịch sử Bảo trì:** Cả Admin và Tài xế đều có thể thêm. Admin thấy tất cả, Tài xế chỉ thấy lịch sử xe của mình. Hệ thống tự động lưu "Người nhập".
+  * **Nhật ký Nhiên liệu:** Quy trình khép kín: Tài xế "Thêm" (trạng thái "Chờ duyệt"). Admin "Duyệt" hoặc "Từ chối". Tài xế không thể sửa/xóa các mục đã được duyệt.
+### 5.2. Những mục tiêu chưa đạt được
+* **Báo cáo & Thống kê:** Chưa có chức năng xuất báo cáo (Excel, PDF) hoặc hiển thị biểu đồ thống kê (ví dụ: tổng chi phí nhiên liệu/xe, số chuyến/tài xế).
 
-1.   **Clone Repository:**
-    ```bash
-    git clone [https://github.com/ten-cua-ban/ten-du-an.git](https://github.com/ten-cua-ban/ten-du-an.git)
-    cd ten-du-an
-    ```
+* **Dashboard (Trang chủ):** Giao diện chính main.py mới chỉ là lời chào, chưa có các thông số (widget) thống kê nhanh về tình trạng đội xe.
 
-2.   **Cài đặt thư viện (Tạo môi trường ảo khuyên dùng):**
-    ```bash
-    pip install pyodbc tkcalendar ttkthemes
-    ```
-
-3.   **Cài đặt CSDL:**
-   
-    *   Mở SQL Server Management Studio (SSMS).
-    
-    *   Mở và chạy file `QL_VanTai.sql` (hoặc tên tương tự) để tạo CSDL, các bảng và dữ liệu mẫu.
-
-4.   **Cấu hình kết nối:**
-   
-    *   Mở file `utils.py`.
-    
-    *   Chỉnh sửa chuỗi `connection_string` cho đúng với **Tên Server**, **Database** (`QL_VanTai`), **User ID** (`sa`) và **Password** của bạn.
-
-5.   **Chạy chương trình:**
-    ```bash
-    python login.py
-    ```
-   
-    *   (Tài khoản Admin mẫu: `admin` / `123`)
-   
-    *   (Tài khoản Tài xế mẫu: `an.nv` / `123`)
+* **Cảnh báo tự động**: Hệ thống chưa tự động quét CSDL để cảnh báo (ví dụ: tô đỏ) các xe sắp hết hạn đăng kiểm hoặc bảo hiểm.
 
 ---
 
 ## 6. KẾT LUẬN VÀ HƯỚNG PHÁT TRIỂN
-
-### Những chức năng đã triển khai
-*   **Admin:** Quản lý toàn bộ dữ liệu gốc (Xe, Tài xế, Nhân viên, Tài khoản), phân công chuyến đi, và duyệt chi phí nhiên liệu.
-*   **Tài xế:** Nhận và thực thi chuyến đi (Bắt đầu, Hoàn thành, Hủy), báo cáo chi phí (Nhiên liệu, Bảo trì vặt), và tự quản lý mật khẩu.
-*   **Hệ thống:** Tự động cập nhật trạng thái Rảnh/Bận cho tài xế, tự động lọc danh sách xe theo tài xế, và theo dõi người nhập chi phí.
 
 ### Hướng phát triển trong tương lai
 *   **Dashboard (Bảng điều khiển):** Thêm một trang Dashboard chính (trang chủ) hiển thị các biểu đồ (ví dụ: tổng chi phí nhiên liệu theo tháng, % xe đang hoạt động, tài xế có nhiều chuyến nhất).
@@ -394,11 +377,7 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 
 ---
 
-## 7. TÀI LIỆU THAM KHẢO
 
-*   (Thêm các link YouTube, Stack Overflow, hoặc tài liệu bạn đã tham khảo tại đây)
-*   [GeeksforGeeks - Python Tkinter](https://www.geeksforgeeks.org/python-gui-tkinter/)
-*   [pyodbc Wiki](https://github.com/mkleehammer/pyodbc/wiki)
 
 
 
