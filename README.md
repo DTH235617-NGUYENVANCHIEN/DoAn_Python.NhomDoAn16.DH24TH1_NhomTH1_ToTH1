@@ -7,13 +7,14 @@
     
 </p>
 
-**Tác giả:**
+**Giảng viên hướng dẫn:** Ths. Nguyễn Ngọc Minh
+
+**Sinh viên thực hiện:**
 *   Nguyễn Văn Chiến - DTH235617
 *   Phạm Mạnh Hùng- DTH235660
 
-**Lớp:** DH24TH1
 
-**Giảng viên hướng dẫn:** Ths. Nguyễn Ngọc Minh
+
 
 ---
 <img width="1011" height="574" alt="image" src="https://github.com/user-attachments/assets/d7ec0a35-130a-4667-ad16-e89ce2bc9d82" />
@@ -376,6 +377,8 @@ CSDL được thiết kế để chuẩn hóa và liên kết các nghiệp vụ
 *   **Phiên bản Mobile:** Phát triển ứng dụng di động gọn nhẹ (ví dụ: dùng React Native hoặc Flutter) cho tài xế để báo cáo nhiên liệu và nhận/trả chuyến đi thuận tiện hơn.
 
 ---
+
+<img width="1125" height="618" alt="image" src="https://github.com/user-attachments/assets/f50dc377-e129-4529-88fe-8a78650ba5a2" />
 
 
 
