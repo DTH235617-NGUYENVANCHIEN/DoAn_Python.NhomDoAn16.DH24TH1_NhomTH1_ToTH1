@@ -33,6 +33,10 @@ def clear_input(widgets):
     widgets['entry_diachi'].delete(0, tk.END)
     widgets['cbb_trangthai_nv'].set("Đang làm việc")
     
+    # Xóa luôn ô tìm kiếm để tránh nhầm lẫn
+    if 'entry_timkiem' in widgets:
+        widgets['entry_timkiem'].delete(0, tk.END)
+        
     widgets['entry_manv'].focus()
     
     tree = widgets['tree']
@@ -41,8 +45,10 @@ def clear_input(widgets):
         
     widgets["current_mode"] = "ADD" # <-- THAY ĐỔI: Đặt chế độ
 
-def load_data(widgets):
-    """Tải TOÀN BỘ dữ liệu từ NhanVien VÀ LÀM MỜ FORM."""
+def load_data(widgets, search_term=None):
+    """
+    THAY ĐỔI: Tải dữ liệu (TOÀN BỘ hoặc THEO TÌM KIẾM) từ NhanVien VÀ LÀM MỜ FORM.
+    """
     tree = widgets['tree']
     for i in tree.get_children():
         tree.delete(i)
@@ -54,8 +60,20 @@ def load_data(widgets):
         
     try:
         cur = conn.cursor()
+        
+        # === THAY ĐỔI SQL ĐỂ HỖ TRỢ TÌM KIẾM ===
         sql = "SELECT MaNhanVien, HoVaTen, SoDienThoai, DiaChi, TrangThai FROM NhanVien"
-        cur.execute(sql)
+        params = []
+        
+        if search_term:
+            # Tìm kiếm theo MaNV, HoTen, hoặc SDT
+            sql += " WHERE HoVaTen LIKE ? OR MaNhanVien LIKE ? OR SoDienThoai LIKE ?"
+            search_like = f"%{search_term}%"
+            params = [search_like, search_like, search_like]
+        
+        cur.execute(sql, params) # <-- Luôn dùng params (kể cả khi nó rỗng)
+        # === KẾT THÚC THAY ĐỔI SQL ===
+        
         rows = cur.fetchall()
         
         for row in rows:
@@ -68,22 +86,27 @@ def load_data(widgets):
         if children:
             first_item = children[0]
             tree.selection_set(first_item) 
-            tree.focus(first_item)         
+            tree.focus(first_item)          
             tree.event_generate("<<TreeviewSelect>>") 
         else:
-            # THAY ĐỔI: Gọi clear_input() để kích hoạt chế độ "Thêm"
+            # Nếu không có dữ liệu (kể cả khi tìm kiếm), kích hoạt chế độ Thêm
             clear_input(widgets)
             
     except Exception as e:
-        messagebox.showerror("Lỗi tải dữ liệu", f"Lỗi SQL: {str(e)}")
+        # Nếu tìm kiếm không ra kết quả (rows rỗng) thì không báo lỗi
+        if not 'rows' in locals() or not rows:
+             clear_input(widgets) # Xóa form nếu không tìm thấy gì
+        else:
+            messagebox.showerror("Lỗi tải dữ liệu", f"Lỗi SQL: {str(e)}")
+            
     finally:
         if conn:
             conn.close()
-        
-        # THAY ĐỔI: Chỉ khóa form và đặt chế độ VIEW nếu có dữ liệu
+            
+        # Chỉ khóa form và đặt chế độ VIEW nếu có dữ liệu
         if tree.get_children():
             set_form_state(is_enabled=False, widgets=widgets)
-            widgets["current_mode"] = "VIEW" # <-- THAY ĐỔI
+            widgets["current_mode"] = "VIEW" 
         # (Nếu không có children, clear_input() đã được gọi và set mode="ADD")
 
 def them_nhanvien(widgets):
@@ -218,6 +241,17 @@ def luu_nhanvien_da_sua(widgets):
         if conn: conn.close()
 
 # ================================================================
+# HÀM LOGIC TÌM KIẾM (THÊM MỚI)
+# ================================================================
+def tim_kiem_nhanvien(widgets):
+    """(LOGIC TÌM KIẾM) Lấy text từ ô tìm kiếm và gọi lại load_data."""
+    search_term = widgets['entry_timkiem'].get()
+    
+    # Nút Hủy cũng sẽ gọi load_data(widgets) (search_term=None), 
+    # nên hàm này chỉ cần gọi khi có search_term hoặc gọi từ nút "Tìm"
+    load_data(widgets, search_term=search_term)
+
+# ================================================================
 # HÀM QUAN TRỌNG NHẤT (SỬA LỖI)
 # ================================================================
 def save_data(widgets):
@@ -235,7 +269,9 @@ def save_data(widgets):
         return
 
     if success:
-        load_data(widgets)
+        # THAY ĐỔI: Tải lại toàn bộ dữ liệu (không tìm kiếm nữa)
+        widgets['entry_timkiem'].delete(0, tk.END) # Xóa ô tìm kiếm
+        load_data(widgets) # Tải lại toàn bộ
 # ================================================================
 
 
@@ -274,7 +310,10 @@ def xoa_nhanvien_vinhvien(widgets):
         
         conn.commit()
         messagebox.showinfo("Thành công", f"Đã xóa vĩnh viễn nhân viên '{manv}' và tất cả dữ liệu liên quan.")
-        load_data(widgets)
+        
+        # Tải lại dữ liệu sau khi xóa
+        widgets['entry_timkiem'].delete(0, tk.END) # Xóa ô tìm kiếm
+        load_data(widgets) 
         
     except Exception as e:
         conn.rollback()
@@ -337,6 +376,23 @@ def create_page(master):
     frame_btn = ttk.Frame(page_frame, style="TFrame")
     frame_btn.pack(pady=10)
 
+    # ===== Frame tìm kiếm (THÊM MỚI) =====
+    frame_search = ttk.Frame(page_frame, style="TFrame")
+    frame_search.pack(pady=(0, 10), padx=20, fill="x") # Đặt ngay sau frame_btn
+
+    lbl_timkiem = ttk.Label(frame_search, text="Tìm kiếm (Tên, Mã, SĐT):")
+    lbl_timkiem.grid(row=0, column=0, padx=5, pady=5)
+    
+    entry_timkiem = ttk.Entry(frame_search, width=40)
+    entry_timkiem.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+    
+    # Nút Tìm kiếm sẽ được gán lệnh sau khi có 'widgets'
+    btn_timkiem = ttk.Button(frame_search, text="Tìm kiếm", width=10) 
+    btn_timkiem.grid(row=0, column=2, padx=10, pady=5)
+    
+    frame_search.columnconfigure(1, weight=1) # Cho ô entry co giãn
+    # ===== Kết thúc thêm Frame tìm kiếm =====
+
     # ===== Bảng danh sách =====
     lbl_ds = ttk.Label(page_frame, text="Danh sách nhân viên (Tất cả)", style="Header.TLabel")
     lbl_ds.pack(pady=(10, 5), padx=20, anchor="w")
@@ -378,6 +434,7 @@ def create_page(master):
         "entry_diachi": entry_diachi,
         "cbb_trangthai_nv": cbb_trangthai_nv,
         "cbb_trangthai_nv_var": cbb_trangthai_nv_var,
+        "entry_timkiem": entry_timkiem, # <-- THÊM MỚI
         "current_mode": "VIEW" # <-- THAY ĐỔI: Thêm biến trạng thái
     }
 
@@ -388,10 +445,22 @@ def create_page(master):
     btn_luu.grid(row=0, column=1, padx=10)
     btn_sua = ttk.Button(frame_btn, text="Sửa", width=8, command=lambda: chon_nhanvien_de_sua(widgets)) 
     btn_sua.grid(row=0, column=2, padx=10)
-    btn_huy = ttk.Button(frame_btn, text="Hủy", width=8, command=lambda: load_data(widgets)) 
+    
+    # THAY ĐỔI: Nút Hủy giờ sẽ gọi load_data (không có tham số) để tải lại toàn bộ
+    btn_huy = ttk.Button(frame_btn, text="Hủy", width=8, command=lambda: (
+        widgets['entry_timkiem'].delete(0, tk.END), # Xóa ô tìm kiếm
+        load_data(widgets) # Tải lại toàn bộ
+    ))
     btn_huy.grid(row=0, column=3, padx=10)
+    
     btn_xoa = ttk.Button(frame_btn, text="Xóa", width=8, command=lambda: xoa_nhanvien_vinhvien(widgets)) 
     btn_xoa.grid(row=0, column=4, padx=10)
+    
+    # === GÁN LỆNH CHO NÚT TÌM KIẾM (THÊM MỚI) ===
+    btn_timkiem.config(command=lambda: tim_kiem_nhanvien(widgets))
+    # Thêm binding phím Enter cho ô tìm kiếm
+    entry_timkiem.bind("<Return>", lambda event: tim_kiem_nhanvien(widgets))
+    # === KẾT THÚC GÁN LỆNH ===
     
     # 4. KẾT NỐI BINDING (SỰ KIỆN CLICK)
     tree.bind("<<TreeviewSelect>>", lambda event: on_item_select(event, widgets)) 
